@@ -1,0 +1,4 @@
+interface:
+  display_name: "CDKD Deploy"
+  short_description: "Deploy CDK apps safely with CDKD in dev and test"
+  default_prompt: "Use $cdkd-deploy to deploy this AWS CDK app safely to a development environment."

@@ -1,0 +1,17 @@
+{
+  "name": "minorun365-agent-skills",
+  "owner": {
+    "name": "Minoru Onda",
+    "url": "https://github.com/minorun365"
+  },
+  "metadata": {
+    "description": "AWSでAIエージェントのWebアプリを作るためのスキル集"
+  },
+  "plugins": [
+    {
+      "name": "agent-builder-skills",
+      "source": "./",
+      "description": "AWSでAIエージェントのWebアプリを作るためのスキル集（AgentCore・Strands・CDK・Lambda Web Adapter・Cognito・SSE）"
+    }
+  ]
+}
