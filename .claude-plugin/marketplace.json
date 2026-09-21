@@ -11,7 +11,7 @@
     {
       "name": "agent-builder-skills",
       "source": "./",
-      "description": "AWSでAIエージェントのWebアプリを作るためのスキル集（AgentCore・Strands・CDK・Lambda Web Adapter・Cognito・SSE）"
+      "description": "AWSでAIエージェントのWebアプリを作るためのスキル集"
     }
   ]
 }
