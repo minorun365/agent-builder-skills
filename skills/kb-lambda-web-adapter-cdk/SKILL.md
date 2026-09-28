@@ -109,7 +109,7 @@ response.setHeader('Cache-Control',
     : 'public, max-age=31536000, immutable');   // Vite のハッシュつきファイル名が前提
 ```
 
-⚠️ **圧縮は配信サーバー側でやる。** 応答をストリームで返すと `Content-Length` が付かず、
+**圧縮は配信サーバー側でやる。** 応答をストリームで返すと `Content-Length` が付かず、
 CloudFront は自動圧縮を諦める。数MBの JS が無圧縮で流れて初期表示が秒単位で遅くなる。
 `Accept-Encoding` を見て Brotli か gzip で圧縮し、`Content-Encoding` と `Vary: Accept-Encoding` を付ければ
 CloudFront はそのまま通す。品質は Brotli 4・gzip 5 程度で足りる（既定の最高品質は CPU 時間が伸びるだけ）。
@@ -165,7 +165,7 @@ const functionUrl = webFunction.addFunctionUrl({
 const webOrigin = origins.FunctionUrlOrigin.withOriginAccessControl(functionUrl);
 ```
 
-⚠️ **OAC だけでは 403 になる。権限がもう1つ要る。** `AWS_IAM` で保護した Function URL は、
+**OAC だけでは 403 になる。権限がもう1つ要る。** `AWS_IAM` で保護した Function URL は、
 `lambda:InvokeFunctionUrl` に加えて `lambda:InvokeFunction` も要求する。
 `FunctionUrlOrigin.withOriginAccessControl` が作るのは前者だけなので、後者をディストリビューション単位で足す。
 
@@ -235,10 +235,10 @@ new agentcore.CfnRuntime(this, 'Runtime', {
 const url = `https://bedrock-agentcore.${region}.amazonaws.com/runtimes/${encodeURIComponent(runtimeArn)}/invocations?qualifier=DEFAULT`;
 ```
 
-- ⚠️ **AgentCore は既定でリクエストヘッダーをコンテナへ渡さない。** 利用者ごとの処理（利用統計、利用者別のデータ）が要るなら
+- **AgentCore は既定でリクエストヘッダーをコンテナへ渡さない。** 利用者ごとの処理（利用統計、利用者別のデータ）が要るなら
   `requestHeaderAllowlist` に `Authorization` を入れる。入れないと、コンテナ側では誰が呼んだのか分からない。
   署名の検証はオーソライザーが済ませているので、コンテナ側は `sub` を読むだけでよい
-- ⚠️ **Runtime のロググループは CDK で先に作る。** AgentCore が自動で作るロググループは保持期間が短い。
+- **Runtime のロググループは CDK で先に作る。** AgentCore が自動で作るロググループは保持期間が短い。
   `/aws/bedrock-agentcore/runtimes/<RuntimeId>-DEFAULT` を保持期間つきで定義しておく。
   Runtime を作り直すと ID が変わるので、同じスタックに置いて一緒に作り直されるようにする
 - エージェントのコンテナも `Platform.LINUX_ARM64` でビルドする（AgentCore Runtime は ARM64）

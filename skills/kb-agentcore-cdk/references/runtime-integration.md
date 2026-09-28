@@ -239,7 +239,7 @@ agentcore.Runtime(self, "runtime",
 ```
 
 - L1 (`CfnRuntime.LifecycleConfigurationProperty`) は `IdleRuntimeSessionTimeout` / `MaxLifetime`（秒数）。
-- ⚠️ 旧 alpha モジュール `aws_cdk.aws_bedrock_agentcore_alpha` の `LifecycleConfiguration` は **Deprecated**。安定版 `aws_cdk.aws_bedrockagentcore` を使う。
+- 旧 alpha モジュール `aws_cdk.aws_bedrock_agentcore_alpha` の `LifecycleConfiguration` は **Deprecated**。安定版 `aws_cdk.aws_bedrockagentcore` を使う。
 
 ### 削減の主戦場（効果の大きい順）
 

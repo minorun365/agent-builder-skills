@@ -38,7 +38,7 @@ user-invocable: true
 
 メールを入れた次の画面では、**パスキーとパスワードを常に並べて出す**。
 
-> ⚠️ **パスキー登録の有無で画面を出し分けない。** 出し分けると「そのメールアドレスが登録済みか」を第三者へ教えることになる。同じ理由で、存在しないアドレスも認証失敗も表示は「メールアドレスまたは認証情報を確認してください。」に統一し、Cognito 側も `preventUserExistenceErrors: true` にする。
+> **パスキー登録の有無で画面を出し分けない。** 出し分けると「そのメールアドレスが登録済みか」を第三者へ教えることになる。同じ理由で、存在しないアドレスも認証失敗も表示は「メールアドレスまたは認証情報を確認してください。」に統一し、Cognito 側も `preventUserExistenceErrors: true` にする。
 
 パスワードでログインした利用者には、**成功後に一度だけ**パスキー登録を案内する。
 
@@ -117,10 +117,10 @@ await associateWebAuthnCredential();
 1. Google Cloud Console でそのクライアントを開き、**承認済みリダイレクト URI に新しい Cognito ドメインの `/oauth2/idpresponse` を1行足す**
 2. そのデモの AWS アカウントへ Secret を入れ、CDK に `googleClientId` を渡す
 
-> ⚠️ **組織の Google Workspace 配下の GCP プロジェクトは、同意画面が「内部」（`orgInternalOnly`）になっていることがある。**
+> **組織の Google Workspace 配下の GCP プロジェクトは、同意画面が「内部」（`orgInternalOnly`）になっていることがある。**
 > その場合は組織のアカウントしかログインできず、外部の人が触るデモでは機能しない。プロジェクトを選ぶ前に同意画面のユーザータイプを確かめる。
 >
-> ⚠️ **`gcloud` でも API でも、クライアントの作成も編集もできない。リダイレクトURIの追記も含めて Console のブラウザ操作が唯一の手段**（2026-08 時点）。根拠は3つ:
+> **`gcloud` でも API でも、クライアントの作成も編集もできない。リダイレクトURIの追記も含めて Console のブラウザ操作が唯一の手段**（2026-08 時点）。根拠は3つ:
 > - `gcloud alpha iap oauth-clients` は IAP 専用で、ヘルプ自身が「プロジェクト内の全 OAuth クライアントの管理 API としては使えない」と明記。加えて IAP OAuth Admin API は 2026-03-19 に完全停止
 > - `iap v1` の discovery を見ると `projects.brands.identityAwareProxyClients` の method は `create/get/list/delete/resetSecret` だけで、**更新系が無い**。停止していなくてもURIは足せない
 > - Google の公開 API 一覧（`https://www.googleapis.com/discovery/v1/apis`）に、OAuth クライアントを管理する API 自体が存在しない
@@ -144,7 +144,7 @@ oAuth: {
 
 フロントは `signInWithRedirect({ provider: 'Google' })` を呼ぶだけ。
 
-⚠️ **Amplify Gen2 の `defineAuth` では「スコープ」が2か所にあり、書き方が逆になる。** ここを取り違えると
+**Amplify Gen2 の `defineAuth` では「スコープ」が2か所にあり、書き方が逆になる。** ここを取り違えると
 デプロイも構成検査も通ったうえで、Googleのログイン画面が `invalid_scope` で開かない。
 
 | 場所 | 何のスコープか | 書き方 |
@@ -171,7 +171,7 @@ curl -s -o /dev/null -L -w '%{url_effective}\n' \
 
 `cognito.UserPoolIdentityProviderGoogle` の L2 は **secret を CloudFormation テンプレートへ平文で残す**。marp-agent は、秘密値を state に残さないカスタムリソース（`google-idp-manager`）で IdP を作る形にしている。
 
-> ⚠️ **組織の管理下にある AWS アカウントでは、SCP で `secretsmanager:CreateSecret` が拒否されていることがある。** marp-agent の handler は Secrets Manager から読む実装なので、その場合は **SSM Parameter Store の SecureString** に置き換える。Lambda 実行ロールに `ssm:GetParameter` と、SecureString を復号する `kms:Decrypt` を付ける。
+> **組織の管理下にある AWS アカウントでは、SCP で `secretsmanager:CreateSecret` が拒否されていることがある。** marp-agent の handler は Secrets Manager から読む実装なので、その場合は **SSM Parameter Store の SecureString** に置き換える。Lambda 実行ロールに `ssm:GetParameter` と、SecureString を復号する `kms:Decrypt` を付ける。
 
 ### 段階的に入れてよい
 
