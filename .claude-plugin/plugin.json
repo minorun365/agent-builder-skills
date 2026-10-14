@@ -1,10 +1,10 @@
 {
   "name": "agent-builder-skills",
   "description": "AWSでAIエージェントのWebアプリを作るためのスキル集",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": { "name": "Minoru Onda", "url": "https://github.com/minorun365" },
   "homepage": "https://github.com/minorun365/agent-builder-skills",
   "repository": "https://github.com/minorun365/agent-builder-skills",
   "license": "Apache-2.0",
-  "keywords": ["aws", "bedrock", "agentcore", "strands-agents", "cdk", "lambda-web-adapter", "cognito"]
+  "keywords": ["aws", "bedrock", "agentcore", "strands-agents", "cdk", "s3", "cloudfront", "lambda-web-adapter", "cognito"]
 }

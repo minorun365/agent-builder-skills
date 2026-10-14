@@ -1,23 +1,21 @@
 # agent-builder-skills
 
 AWS で AI エージェントの Web アプリを作るための、コーディングエージェント向けスキル集です。
-Amazon Bedrock AgentCore と Strands Agents でエージェントを動かし、AWS CDK と Lambda Web Adapter で画面を配信する構成を、実際に作って詰まったところを中心にまとめています。
+Amazon Bedrock AgentCore と Strands Agents でエージェントを動かし、AWS CDK で S3 と CloudFront から画面を配信する構成を、実際に作って詰まったところを中心にまとめています。
 
 公式ドキュメントの代わりではありません。**公式どおりにやったのに動かなかったときの原因と対処**を集めたものです。
 
 ## アーキテクチャ
 
-<img src="docs/images/architecture.svg" alt="ブラウザから CloudFront と Lambda Web Adapter で画面を取得し、Cognito でサインインして、AgentCore Runtime を直接呼び出す構成" width="100%">
+<img src="docs/images/architecture.svg" alt="ブラウザから CloudFront と S3 で画面を取得し、Cognito でサインインして、AgentCore Runtime を直接呼び出す構成" width="100%">
 
-画面の配信とエージェントの実行を別のコンテナに分け、ブラウザからエージェントを直接呼び出します。Lambda を経由させないので、エージェントの長い応答が Lambda の応答サイズと実行時間の上限を受けません。
-
-この構成で動いている実物は [minorun365/marp-agent](https://github.com/minorun365/marp-agent) です。
+画面は静的ファイルとして S3 から配信し、ブラウザからエージェントを直接呼び出します。Lambda を経由させないので、エージェントの長い応答が Lambda の応答サイズと実行時間の上限を受けません。サーバー側の処理が要るときだけ、そのパスに Lambda Web Adapter（または Lambda Web Functions）を足します。どちらにするかの判断基準は `kb-agent-webapp-cdk` にあります。
 
 ## スキル一覧
 
 | スキル | 中身 |
 |---|---|
-| `kb-lambda-web-adapter-cdk` | 全体構成の入口。スタックの分け方、画面を配信する Lambda コンテナ、CloudFront の設定、ローカル開発、検証 |
+| `kb-agent-webapp-cdk` | 全体構成の入口。スタックの分け方、S3 と CloudFront での画面配信、Lambda を足すかの判断と足し方、ローカル開発、検証 |
 | `kb-agentcore-cdk` | AgentCore Runtime の CDK 定義、JWT 認証、コンテナ、Browser Tool、Gateway、コストの罠 |
 | `kb-strands-agentcore` | Strands Agents の Agent・ツール定義・イベント処理・会話履歴 |
 | `kb-agentcore-observability` | OpenTelemetry の設定、トレースが出ないときの調べ方、メトリクス |
