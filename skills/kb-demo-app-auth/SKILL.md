@@ -1,12 +1,12 @@
 ---
 name: kb-demo-app-auth
-description: デモアプリ・Webアプリの Cognito 認証のおすすめ構成。「Googleで続ける」か「メール＋パスキー（パスワードも併用可）」の2経路をCDKとフロントでどう組むか、パスキーが動かない設定の罠、Google client secret の置き場、ログイン画面のUX規約、Googleの同意画面に出るアプリ名の扱い。新しくデモアプリを作るとき、既存アプリの認証を作り直すとき、パスキーやGoogleログインが動かないときに読む。
+description: デモアプリ・Webアプリの Cognito 認証のおすすめ構成。「Googleで続ける」か「メール（パスキーかメールのワンタイムコード。パスワードなし）」の2経路をCDKとフロントでどう組むか、パスキーが動かない設定の罠、Google client secret の置き場、ログイン画面のUX規約、Googleの同意画面に出るアプリ名の扱い。新しくデモアプリを作るとき、既存アプリの認証を作り直すとき、パスキーやGoogleログインが動かないときに読む。
 user-invocable: true
 ---
 
 # デモアプリの Cognito 認証（おすすめ構成）
 
-デモアプリ・Webアプリの認証は、**特に指定がなければこの構成にする**：「Googleで続ける」か「メール＋パスキー」。
+デモアプリ・Webアプリの認証は、**特に指定がなければこの構成にする**：「Googleで続ける」か「メール（パスキーかメールのワンタイムコード）」。パスワードは使わない。
 
 動く実物は [minorun365/marp-agent](https://github.com/minorun365/marp-agent)。
 迷ったら実物を読む。設計の背景は同リポジトリの `docs/authentication-options.md`。
@@ -18,6 +18,7 @@ user-invocable: true
 | `src/components/Auth/AuthScreen.css` | 同スタイル |
 | `infra/lambda/auth/google-idp-manager/handler.ts` | Google IdP を作るカスタムリソース |
 | `infra/lambda/auth/google-link/handler.ts` | preSignUp。既存メールユーザーへGoogleを連携 |
+| `infra/lambda/auth/custom-message/handler.ts` | 確認コードとログインのコードのメールを日本語にする |
 
 ---
 
@@ -26,21 +27,22 @@ user-invocable: true
 | 経路 | 初回 | 2回目以降 |
 |---|---|---|
 | Google | 「Googleで続ける」で登録とログインが同時に終わる | Google |
-| メール | メールアドレス＋パスワードで登録し、確認コードでメールを確認 | パスキー（顔・指紋）。パスワードも使える |
+| メール | メールアドレスだけで登録し、確認コードを入れるとそのままログイン | メールのワンタイムコード。パスキーを登録すれば顔・指紋 |
 
-- **メールのワンタイムコードログインは採用しない。** SES の本番利用申請を認証の前提にしない。Cognito 標準メールは新規登録の確認とパスワード再設定だけに使う（AWSアカウントあたり1日50通）。
-- **パスキーはパスワードの置き換えではない。** 登録しなくても期限なくパスワードで使える。
+- **パスワードは使わない。** 画面に入力欄を置かず、App Client にもパスワードの経路を開けない（下の CDK）。
+- **メールのコードは Cognito 標準メールで送る**（AWSアカウントあたり1日50通）。ログインのたびに1通なので、デモ規模なら収まる。上限に近づいたら SES の本番利用申請を検討する。
+- **パスキーは任意。** 登録しなくても、メールのコードで期限なく使える。
 - **Google 利用者へパスキー登録を案内しない。** 本人確認は Google 側が担当している。
 
 ## 2. ログイン画面のUX規約
 
 1画面目は **2択だけ**に絞る。「Googleで続ける」と、メールアドレス入力＋「メールで続ける」。
 
-メールを入れた次の画面では、**パスキーとパスワードを常に並べて出す**。
+メールを入れた次の画面では、**「パスキーでログイン」と「メールにコードを送る」を常に並べて出す**。存在しないアドレスでも Cognito は同じ応答を返すので、コードが来ない人への案内（登録し直しなど）はコード入力の画面に置く。
 
 > **パスキー登録の有無で画面を出し分けない。** 出し分けると「そのメールアドレスが登録済みか」を第三者へ教えることになる。同じ理由で、存在しないアドレスも認証失敗も表示は「メールアドレスまたは認証情報を確認してください。」に統一し、Cognito 側も `preventUserExistenceErrors: true` にする。
 
-パスワードでログインした利用者には、**成功後に一度だけ**パスキー登録を案内する。
+メールのコードでログインした利用者には、**成功後に一度だけ**パスキー登録を案内する。
 
 - 「パスキーを登録」と「あとで」の2つだけ
 - 「あとで」を押されたら **30日間は再案内しない**（`localStorage` に押した時刻を持つ）
@@ -48,7 +50,7 @@ user-invocable: true
 
 ## 3. CDK（User Pool）
 
-パスキーは設定が1つでも欠けると**エラーにならず、ただ使えない**形で失敗する。次の5点をまとめて入れる。
+パスキーとメールのコードは、設定が1つでも欠けると**エラーにならず、ただ使えない**形で失敗する。次の5点をまとめて入れる。
 
 ```ts
 this.userPool = new cognito.UserPool(this, 'UserPool', {
@@ -61,17 +63,16 @@ this.userPool = new cognito.UserPool(this, 'UserPool', {
   standardAttributes: { email: { required: true, mutable: true } },
   accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
   signInPolicy: {
-    allowedFirstAuthFactors: { password: true, passkey: true },   // ③ パスキーを第1認証要素に
+    allowedFirstAuthFactors: { password: true, passkey: true, emailOtp: true },   // ③ password は Cognito の仕様で外せない（PasswordAuthenticationCannotDisabled）
   },
   passkeyRelyingPartyId: props.appDomain,                          // ④ 配信ドメインと完全一致させる
   passkeyUserVerification: cognito.PasskeyUserVerification.PREFERRED,
-  passwordPolicy: { minLength: 8, requireDigits: false, requireLowercase: false, requireSymbols: false, requireUppercase: false },
 });
 
 this.userPoolClient = this.userPool.addClient('WebClient', {
   generateSecret: false,
   preventUserExistenceErrors: true,
-  authFlows: { user: true, userPassword: true, userSrp: true },    // ⑤ user:true = USER_AUTH。無いとパスキーを選べない
+  authFlows: { user: true },    // ⑤ USER_AUTH だけ。パスワードの経路（userPassword・userSrp）を開けないことで入口を閉じる
   accessTokenValidity: cdk.Duration.minutes(60),
   idTokenValidity: cdk.Duration.minutes(60),
   refreshTokenValidity: cdk.Duration.days(30),
@@ -79,7 +80,8 @@ this.userPoolClient = this.userPool.addClient('WebClient', {
 ```
 
 - **④ の RP ID は「利用者がアクセスするドメイン」**。`dxxxx.cloudfront.net` のような配信基盤の既定ドメインでもよいが、後からカスタムドメインへ移すと**登録済みのパスキーは全部使えなくなる**（RP ID が変わるため）。カスタムドメインを付ける予定があるなら、パスキーを入れる前に先に付ける。
-- **パスワードポリシーを厳しくしない。** パスキーを入れる目的は入力を減らすこと。記号必須・12文字のような設定はデモの初回登録を重くするだけ。
+- **自動の検査でログインが要るなら `adminUserPassword: true` だけ足し、`admin-initiate-auth` で入る**（AWS の認証情報が要るので、利用者向けの入口にはならない）
+- **メールを日本語にする**：カスタムメッセージの Lambda トリガーで `CustomMessage_SignUp`（確認コード）と `CustomMessage_Authentication`（ログインのコード。パスワードなしのログインもここを通る）の件名と本文を差し替える
 - `featurePlan: ESSENTIALS` は MAU 課金が発生する。デモ規模なら無視できるが、LITE からの変更なので認識しておく。
 
 ### フロント側（aws-amplify v6）
@@ -88,8 +90,14 @@ this.userPoolClient = this.userPool.addClient('WebClient', {
 // パスキーでログイン
 await signIn({ username: email, options: { authFlowType: 'USER_AUTH', preferredChallenge: 'WEB_AUTHN' } });
 
-// パスワードでログイン
-await signIn({ username: email, password, options: { authFlowType: 'USER_PASSWORD_AUTH' } });
+// メールのコードでログイン（nextStep は CONFIRM_SIGN_IN_WITH_EMAIL_CODE）
+await signIn({ username: email, options: { authFlowType: 'USER_AUTH', preferredChallenge: 'EMAIL_OTP' } });
+await confirmSignIn({ challengeResponse: code });
+
+// パスワードなしで新規登録 → 確認コードでそのままログイン
+await signUp({ username: email, options: { userAttributes: { email }, autoSignIn: { authFlowType: 'USER_AUTH' } } });
+await confirmSignUp({ username: email, confirmationCode: code });   // nextStep は COMPLETE_AUTO_SIGN_IN
+await autoSignIn();
 
 // ログイン後にパスキーを登録
 await associateWebAuthnCredential();
@@ -193,8 +201,8 @@ Cognito は、メールアドレスが同じでもローカルユーザーと Go
 
 1. メールで新規登録 → 確認コード → ログイン
 2. パスキー登録 → いったんサインアウト → **パスキーでログイン**
-3. パスキー未登録の状態でパスキーを押し、共通エラーが出てパスワードへ戻れる
+3. パスキー未登録の状態でパスキーを押し、共通エラーが出てメールのコードへ戻れる。届いたコードのメールが日本語か
 4. Google ログイン（有効にした場合）
 5. **PC と iPhone の両方**（iOS Simulator か実機の Safari）
 
-`localhost` は RP ID が `localhost` になるため、**本番ドメインで登録したパスキーはローカルでは使えない**。ローカルではパスワード経路で確認する。
+`localhost` は RP ID が `localhost` になるため、**本番ドメインで登録したパスキーはローカルでは使えない**。ローカルではメールのコードで確認する（画面だけを手元で起動し、本番の User Pool につないでよい）。
