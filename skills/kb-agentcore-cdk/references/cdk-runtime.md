@@ -198,4 +198,10 @@ data: [DONE]
 const textValue = event.content || event.data;
 ```
 
+### Runtime を V2 へ移すときに確かめること
+
+- CDKD は Runtime の `platformVersion: V2` を Cloud Control API 経由で適用する。デプロイの成功だけで済ませず、GetAgentRuntime で `platformVersion` を読み、公開入口（API やフロントエンド）がどの Runtime を指しているかも照合する
+- AgentCore Memory に、会話の控え（blob）と conversational イベントを混ぜて保存している場合、最新のイベント1件だけを読むと控えを取りこぼす。保存形式を判別し、全ページを読んで最新の控えを選ぶ。セッションを閉じたあとの会話の復元を、ログインあり・なしの両方の経路で確かめる
+- Managed Knowledge Base を Retrieve するときは `managedSearchConfiguration` を使う。通常の `vectorSearchConfiguration` を渡すと ValidationException になる
+
 ---
