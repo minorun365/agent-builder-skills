@@ -5,6 +5,7 @@
 - update_agent_runtime の注意点
   - update_agent_runtime は全フィールド置換（パッチ更新ではない）
   - agentcore deploy で認証設定がリセットされる
+  - Runtime を更新しても、続いている会話は古いコードのまま答える
 - JWT 認証時の SDK/CLI 制約
   - JWT認証時に SDK/CLI で Authorization method mismatch
 - CodeZip デプロイの罠
@@ -60,6 +61,16 @@ control.update_agent_runtime(
 **原因**: AgentCore CLI の deploy は `authorizerConfiguration` を管理しない。デプロイ時にランタイム設定が上書きされ、認証設定が空になる
 
 **解決策**: デプロイ後にマネコンまたは API で認証設定を再適用する。環境変数は `agentcore.json` の `envVars` で管理すれば保持される
+
+### Runtime を更新しても、続いている会話は古いコードのまま答える
+
+**症状**: Runtime を更新した直後にアプリから試すと、更新前のコードの挙動のまま答える。確認用に新しい会話IDで呼ぶと新しい挙動になる
+
+**原因**: AgentCore Runtime は、同じ `runtimeSessionId` の呼び出しを同じ実行環境へ届け続ける。実行環境は、使われない時間が `idleRuntimeSessionTimeout`（既定15分）に達するまで残り、呼ぶたびに期限が延びる。Runtime を更新しても、残っている実行環境は更新前のコードで動く。会話IDを固定にしているアプリ（チャットのルームやスレッドごとに1つの会話ID、など）では、試すたびに古い実行環境が延命される
+
+**確認の仕方**: デプロイ後の確認は、アプリが実際に使う会話IDで呼ぶ。新しい会話IDで呼ぶと新しい実行環境が立つので、成功に見えても確認にならない
+
+**解決策**: `bedrock-agentcore` の `stop_runtime_session` で古い実行環境を止める。恒久対策は、会話IDにコードの版の印（CDK なら `Asset.assetHash`）を含め、デプロイのたびに会話IDが変わるようにすること。会話の記憶を実行環境の中に持たず、外部（AgentCore Memory など）に置く作りが前提になる
 
 ---
 
