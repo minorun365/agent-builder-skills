@@ -167,6 +167,26 @@ if __name__ == "__main__":
     app.run()
 ```
 
+## 保管庫は「範囲」と「追加の指定」の組で鍵を引く
+
+`GetResourceOauth2Token` は、`scopes` だけでなく `customParameters`（Google の `access_type`・`prompt`・`login_hint` など）まで、許可を取ったときと同じ頼み方でないと保管庫の鍵を返さない。1つでも違うと、鍵があっても `authorizationUrl` を返してくる。許可は通り `CompleteResourceTokenAuth` も成功しているのに取り出せない、という形で出る。
+
+- 許可を取るスクリプトとエージェントで、`scopes` と `customParameters` を1か所の定数から読む
+- Google は `access_type=offline` に加えて `prompt=consent` も入れる（入れないと2回目以降の許可で更新用トークンが返らない）
+- 範囲を広げたら、定数を変えてから許可を取り直す
+
+## 利用者が1人のエージェントは、許可の戻り先を手元のマシンに置ける
+
+鍵の持ち主が開発者本人1人だけのエージェントなら、公開の callback サーバーを立てなくてよい。手元で `GetWorkloadAccessTokenForUserId`（名前を決めて作ったワークロード ID ＋固定の userId）→ `GetResourceOauth2Token(forceAuthentication=True)` → `localhost` の待ち受けで `CompleteResourceTokenAuth`、を1回やれば、以後はエージェントが同じワークロード ID と userId で鍵を受け取れる。
+
+- ランタイムに自動で付くワークロード ID は使わず、名前を決めて作る（許可スクリプトとエージェントが同じ名前を指せる）。実行ロールには `GetWorkloadAccessTokenForUserId` と `GetResourceOauth2Token`（ワークロード ID・token-vault・発行元）と、発行元の秘密 `bedrock-agentcore-identity!default/oauth2/<名前>-*` の `secretsmanager:GetSecretValue` を許す
+- 発行元（`CreateOauth2CredentialProvider`）は client secret を持つので、テンプレートではなくスクリプトで作る。callback URL は作った後にしか分からないので、OAuth クライアント作成 → 発行元作成 → クライアントへリダイレクト URI 登録、の順になる。Google のデスクトップ型クライアントは任意のリダイレクト URI を登録できないので、ウェブ型を作る
+- 許可の URL は1つのタブでだけ開く。既定のブラウザを自動で開くと、別のプロファイルでも開いて片方が `Invalid request` になる
+
+## Gateway を挟むか、コードの道具で直接使うか
+
+Gateway の OpenAPI / MCP ターゲットに 3LO の発行元を付けると、API をそのまま道具として出せる（新しい SaaS を足すのが設定だけで済む）。ただし API の生の応答がモデルへ渡る。個人宛ての本文や個人情報を含むデータのように、モデルへ渡す項目を絞りたいものは、Identity から鍵だけ受け取るコードの道具にして、抜き出しをコードで行う。生の応答を渡してよい SaaS（タスク管理・ドキュメント検索など）が増えてきたら Gateway に寄せる。
+
 ## トラブルシューティング
 
 ### workload-identity ARN 不一致
@@ -215,3 +235,10 @@ identity_client.complete_resource_token_auth(
 - `fastapi` + `uvicorn` を依存関係に追加
 
 **参考**: GitHub Issue #801、公式サンプル `05-Outbound_Auth_3lo/oauth2_callback_server.py`
+
+## Runtime の中で API キーを読むときの workload token
+
+- **Runtime が呼び出しに workload token を付けるのは、ユーザーID付きで呼ばれたときだけ**（inbound の JWT 認証、または `runtimeUserId` 付きの IAM 呼び出し）。Lambda からの素の IAM 呼び出しや、AgentCore Gateway 経由では付かず、`BedrockAgentCoreContext.get_workload_access_token()` が空になる
+- 付かない呼ばれ方なら、名前付きのワークロード ID（CLI `create-workload-identity` か CDK の `CfnWorkloadIdentity`）を作り、`bedrock-agentcore:GetWorkloadAccessToken` を許可して、`boto3.client("bedrock-agentcore").get_workload_access_token(workloadName=...)` で自分で取る。名前は環境変数で渡す
+- **`IdentityClient.get_api_key` は async 関数**（bedrock-agentcore 1.25.0）。同期で呼ぶとキーではなく coroutine が返る。同期の道具の中では `get_resource_api_key(resourceCredentialProviderName=..., workloadIdentityToken=...)["apiKey"]` を直接呼ぶ
+- API キーの資格情報プロバイダはリージョンごと。別リージョンの Runtime で同じキーを使うなら、そのリージョンにも同じ名前で登録する
