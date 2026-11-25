@@ -2,7 +2,7 @@
 
 ## Langfuse連携（サードパーティOTEL送信）
 
-OTELベースなので、CloudWatch以外のバックエンドにもトレースを送信可能。Langfuseとの連携例:
+OTELベースなので、CloudWatch以外のバックエンドにもトレースを送信できる。Langfuseとの連携例を次に示す。
 
 ```python
 import base64
@@ -33,11 +33,10 @@ agent = Agent()
 response = agent("こんにちは")
 ```
 
-**ポイント**:
-- Langfuse Cloud の Hobby プラン（無料）で動作確認済み
-- トレース名 `invoke_agent Strands Agents` として記録される
+ポイントは以下のとおり。
+- Langfuse Cloud の Hobby プラン（無料）で動作を確認している
+- トレース名は `invoke_agent Strands Agents` として記録される
 - トークンコストの自動計算まで動作する
-- AgentCore Runtime にデプロイする場合は `DISABLE_ADOT_OBSERVABILITY=True` 環境変数で ADOT を無効化する必要あり（競合防止）
+- AgentCore Runtime にデプロイする場合は、競合を防ぐために環境変数 `DISABLE_ADOT_OBSERVABILITY=True` で ADOT を無効化する必要がある
 
 ---
-

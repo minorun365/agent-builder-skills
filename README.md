@@ -1,28 +1,28 @@
 # agent-builder-skills
 
 AWS で AI エージェントの Web アプリを作るための、コーディングエージェント向けスキル集です。
-Amazon Bedrock AgentCore と Strands Agents でエージェントを動かし、AWS CDK で S3 と CloudFront から画面を配信する構成を、実際に作って詰まったところを中心にまとめています。
+Amazon Bedrock AgentCore と Strands Agents でエージェントを動かし、AWS CDK で S3 と CloudFront から画面を配信する構成について、実際に作って詰まったところを中心にまとめています。
 
-公式ドキュメントの代わりではありません。**公式どおりにやったのに動かなかったときの原因と対処**を集めたものです。
+公式ドキュメントの代わりではなく、**公式どおりにやったのに動かなかったときの原因と対処**を集めています。
 
 ## アーキテクチャ
 
 <img src="docs/images/architecture.svg" alt="ブラウザから CloudFront と S3 で画面を取得し、Cognito でサインインして、AgentCore Runtime を直接呼び出す構成" width="100%">
 
-画面は静的ファイルとして S3 から配信し、ブラウザからエージェントを直接呼び出します。Lambda を経由させないので、エージェントの長い応答が Lambda の応答サイズと実行時間の上限を受けません。サーバー側の処理が要るときだけ、そのパスに Lambda Web Adapter（または Lambda Web Functions）を足します。どちらにするかの判断基準は `kb-agent-webapp-cdk` にあります。
+画面は静的ファイルとして S3 から配信し、ブラウザからエージェントを直接呼び出します。Lambda を経由させないので、エージェントの応答が長くなっても、Lambda の応答サイズや実行時間の上限に引っかかりません。サーバー側の処理が必要なときだけ、そのパスに Lambda Web Adapter（または Lambda Web Functions）を足します。どちらにするかの判断基準は `kb-agent-webapp-cdk` にあります。
 
 ## スキル一覧
 
 | スキル | 中身 |
 |---|---|
-| `kb-agent-webapp-cdk` | 全体構成の入口。スタックの分け方、S3 と CloudFront での画面配信、Lambda を足すかの判断と足し方、ローカル開発、検証 |
+| `kb-agent-webapp-cdk` | 全体構成の入口。スタックの分け方、S3 と CloudFront での画面配信、Lambda を足すかどうかの判断と足し方、ローカル開発、検証 |
 | `kb-agentcore-cdk` | AgentCore Runtime の CDK 定義、JWT 認証、コンテナ、Browser Tool、Gateway、コストの罠 |
-| `kb-strands-agentcore` | Strands Agents の Agent・ツール定義・イベント処理・会話履歴 |
+| `kb-strands-agentcore` | Strands Agents の Agent・ツール定義、イベント処理、会話履歴 |
 | `kb-agentcore-observability` | OpenTelemetry の設定、トレースが出ないときの調べ方、メトリクス |
 | `kb-agentcore-identity` | 外部サービスへのアウトバウンド認証（3LO・M2M） |
-| `kb-demo-app-auth` | Cognito の Google ログイン＋パスキー、ログイン画面の作り |
+| `kb-demo-app-auth` | Cognito の Google ログインとパスキー、ログイン画面の作り方 |
 | `kb-frontend-sse` | SSE ストリーミングの受け方、タイムアウト、リトライ |
-| `cdkd-deploy` | コミュニティ製の CDKD で CDK アプリを高速にデプロイする手順と安全の線引き（英語） |
+| `cdkd-deploy` | コミュニティ製の CDKD で CDK アプリを高速にデプロイする手順と、安全に使うための線引き（英語） |
 
 ## 使い方
 
@@ -35,7 +35,7 @@ Amazon Bedrock AgentCore と Strands Agents でエージェントを動かし、
 
 ### フォルダをコピーして使う
 
-`skills/` の中身は素の Markdown です。必要なものだけを自分の環境のスキル置き場へコピーしてください。
+`skills/` の中身は素の Markdown です。必要なものだけ自分の環境のスキル置き場にコピーしてください。
 
 ```bash
 git clone https://github.com/minorun365/agent-builder-skills.git
@@ -46,8 +46,8 @@ Claude Code 以外のコーディングエージェントでも、`SKILL.md` と
 
 ## 注意
 
-- AWS のサービスとライブラリは更新が速いので、書いてある内容は確認した時点のものです。モデル ID・料金・対応リージョンは、使うときに公式の情報で確かめてください
-- CDKD は AWS の公式ツールではなくコミュニティ製です。本番で使うかどうかの判断は `cdkd-deploy` を読んでください
+- AWS のサービスやライブラリは更新が速いので、書いてある内容は確認した時点のものです。モデル ID、料金、対応リージョンは、使うときに公式の情報で確かめてください
+- CDKD は AWS の公式ツールではなくコミュニティ製です。本番で使うかどうか判断するときは、`cdkd-deploy` を読んでください
 
 ## ライセンス
 

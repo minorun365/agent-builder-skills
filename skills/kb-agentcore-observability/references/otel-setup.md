@@ -2,7 +2,7 @@
 
 ## Observability（トレース）セットアップ
 
-AgentCore Observability でトレースを出力する場合、以下の4点が**すべて**必要：
+AgentCore Observability でトレースを出力する場合、以下の4点が**すべて**必要になる。
 
 ### 1. requirements.txt
 ```
@@ -34,7 +34,7 @@ from bedrock_agentcore import BedrockAgentCoreApp
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 ```
 
-**注意**: 上記4つすべてが必要。1つでも欠けるとトレースが出力されない。
+注意点として、上記4つはすべて必要になる。1つでも欠けるとトレースが出力されない。
 
 ### 5. CloudWatch Transaction Search（アカウントごとに1回）
 
@@ -52,13 +52,13 @@ aws logs describe-resource-policies --region us-east-1
 
 ### import パスの罠: runtime サブモジュール経由だとトレースが出ない
 
-`from bedrock_agentcore.runtime import BedrockAgentCoreApp` を使うと、内部的には同じクラスが動くにもかかわらず、GenAI Observability の Traces View にトレースが一切表示されない。OTel のログ・メトリクスは正常に出力されるため、影響を受けるのはトレース（X-Ray スパン）のエクスポートのみ。SDK のトップレベル `__init__.py` での Observability 初期化フックに乗らないことが原因と推測される。
+`from bedrock_agentcore.runtime import BedrockAgentCoreApp` を使うと、内部では同じクラスが動くのに、GenAI Observability の Traces View にトレースが一切表示されない。OTel のログとメトリクスは正常に出力されるため、影響が出るのはトレース（X-Ray スパン）のエクスポートだけになる。SDK のトップレベルにある `__init__.py` の Observability 初期化フックに乗らないことが原因と推測される。
 
 ---
 
 ## OTELログ形式
 
-OTEL有効時、ログは `otel-rt-logs` ストリームにJSON形式で出力される。各セッションは `session.id` フィールドで識別される。
+OTELが有効な場合、ログは `otel-rt-logs` ストリームにJSON形式で出力される。各セッションは `session.id` フィールドで識別できる。
 
 ```json
 {
@@ -77,7 +77,7 @@ OTEL有効時、ログは `otel-rt-logs` ストリームにJSON形式で出力�
 
 ### CloudWatch Logs Insightsでのセッションカウント
 
-OTELログからセッション数をカウントするクエリ：
+OTELログからセッション数をカウントするには、次のクエリを使う。
 
 ```
 parse @message /"session\.id":\s*"(?<sid>[^"]+)"/
@@ -86,7 +86,7 @@ parse @message /"session\.id":\s*"(?<sid>[^"]+)"/
 | sort hour_utc asc
 ```
 
-**注意**: `datefloor(@timestamp + 9h, ...)` を使うと挙動が不安定。UTCで集計してからスクリプト側でJSTに変換する。
+`datefloor(@timestamp + 9h, ...)` を使うと挙動が不安定になる点に注意する。UTCで集計してからスクリプト側でJSTに変換する。
 
 ```bash
 # UTCの時刻をJSTに変換
@@ -94,4 +94,3 @@ JST_HOUR=$(( (10#$UTC_HOUR + 9) % 24 ))
 ```
 
 ---
-

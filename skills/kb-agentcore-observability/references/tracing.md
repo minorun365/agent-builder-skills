@@ -2,9 +2,9 @@
 
 ## トレースの確認
 
-1. CloudWatch Console -> **Bedrock AgentCore GenAI Observability**
-2. Agents View / Sessions View / Traces View で確認可能
-3. トレースの確認画面は **CloudWatchコンソール側**。AgentCoreコンソールではない点に注意
+1. CloudWatch Console -> Bedrock AgentCore GenAI Observability
+2. Agents View / Sessions View / Traces View で確認できる
+3. トレースの確認画面は AgentCoreコンソールではなく **CloudWatchコンソール側** にあるので注意する
 
 ---
 
@@ -23,7 +23,7 @@ agent = Agent()
 response = agent("こんにちは")
 ```
 
-出力されるスパン階層:
+出力されるスパンの階層は次のとおり。
 ```
 invoke_agent Strands Agents    ← Agent Span（エージェント全体）
   └─ execute_event_loop_cycle  ← Cycle Span（推論サイクル）
@@ -31,12 +31,12 @@ invoke_agent Strands Agents    ← Agent Span（エージェント全体）
        └─ execute_tool xxx     ← Tool Span（ツール呼び出し）
 ```
 
-各スパンに付与される主要属性:
+各スパンには主に次の属性が付与される。
 - `gen_ai.usage.prompt_tokens` / `gen_ai.usage.completion_tokens`
 - `gen_ai.server.time_to_first_token`（ms）
 - `gen_ai.request.model`
 
-**注意**: ローカルから CloudWatch X-Ray への直接送信は非推奨。ADOT 自動計装で SigV4 署名付き POST が成功（200 OK）しても、Runtime 環境外からのトレースは `aws/spans` に記録されない。ローカル開発ではコンソールエクスポーターを使うこと。
+注意: ローカルから CloudWatch X-Ray への直接送信は非推奨。ADOT 自動計装で SigV4 署名付き POST が 200 OK で成功しても、Runtime 環境外からのトレースは `aws/spans` に記録されないため、ローカル開発ではコンソールエクスポーターを使うこと。
 
 ---
 
@@ -55,9 +55,8 @@ t.setup_meter(                 # メトリクス有効化
 # メソッドチェーン可: t.setup_otlp_exporter().setup_console_exporter()
 ```
 
-`setup_otlp_exporter` の kwargs は `OTLPSpanExporter` にそのまま渡される:
+`setup_otlp_exporter` の kwargs は `OTLPSpanExporter` にそのまま渡される。
 - `endpoint`: OTLPエンドポイントURL
-- `headers`: 認証ヘッダー等
+- `headers`: 認証ヘッダーなど
 
 ---
-

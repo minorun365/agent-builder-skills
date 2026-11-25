@@ -65,9 +65,9 @@ AgentCore Runtime は `runtimeSessionId` ごとにコンテナをルーティン
 
 ### CDK デプロイしてもコンテナはすぐに入れ替わらない
 
-`npx cdk deploy` でコード・環境変数を更新しても、**既存の実行中コンテナは古いコード＆環境変数のまま動き続ける**。新しい設定が反映されるのは新規に起動されるコンテナのみ。
+`npx cdk deploy` でコードや環境変数を更新しても、既存の実行中コンテナは古いコードと環境変数のまま動き続ける。新しい設定は新しく起動するコンテナにだけ反映される。
 
-**対処法**: `stop-runtime-session` で既存セッションを停止
+対処法: `stop-runtime-session` で既存セッションを停止する。
 
 ```bash
 aws bedrock-agentcore stop-runtime-session \
@@ -77,15 +77,15 @@ aws bedrock-agentcore stop-runtime-session \
   --region REGION
 ```
 
-次回の呼び出し時に新しいコンテナが起動し、最新のコード・環境変数が反映される。セッション停止後は会話履歴（エージェント内のメモリ）もリセットされる。
+次回の呼び出し時に新しいコンテナが起動し、最新のコードと環境変数が反映される。セッションを停止すると、エージェント内のメモリにある会話履歴もリセットされる。
 
 ### 定期実行×固定セッションIDは「デプロイが永遠に反映されない」罠
 
-EventBridge Scheduler などの定期実行で **毎回同じ `runtimeSessionId`** を使うと、実行間隔がアイドルタイムアウト（15分）より短い場合、セッションが延命され続けて**旧バージョンのコンテナが永遠に生き残る**。`cdk deploy` は成功し、エンドポイントの `liveVersion` も新しくなるのに、定期実行だけ旧コードで動き続ける。
+EventBridge Scheduler などの定期実行で毎回同じ `runtimeSessionId` を使うと、実行間隔がアイドルタイムアウトの15分より短い場合、セッションが延命され続けて旧バージョンのコンテナが永遠に生き残る。`cdk deploy` は成功し、エンドポイントの `liveVersion` も新しくなるのに、定期実行だけ旧コードで動き続ける。
 
-**対処法（推奨順）**:
+推奨順の対処法は次のとおり。
 
-1. **定期実行・バッチ系は毎回ランダムなセッションIDにする**（会話状態が不要なら固定にする意味がない）
+1. 定期実行やバッチ処理では毎回ランダムなセッションIDにする。会話状態が不要なら固定にする意味がない。
 
 ```typescript
 function buildAgentRuntimeSessionId(request: AgentRequest): string {
@@ -99,21 +99,21 @@ function buildAgentRuntimeSessionId(request: AgentRequest): string {
 }
 ```
 
-2. デプロイ直後に `stop-runtime-session` で該当セッションを止める（セッションIDの逆算が必要で運用が面倒）
+2. デプロイ直後に `stop-runtime-session` で該当セッションを止める。ただしセッションIDの逆算が必要になるため、運用が面倒になる。
 
-**確認方法**: 生成物のメタデータ（モデル名・プロンプトバージョン等）を DynamoDB 等に記録しておくと、「デプロイしたのに旧挙動」に気づける。エンドポイントは `aws bedrock-agentcore-control get-agent-runtime-endpoint --endpoint-name DEFAULT` で `liveVersion` を確認できるが、**liveVersion が新しくても既存セッションは旧コンテナのまま**なので騙されないこと。
+確認方法: 生成物のメタデータとしてモデル名やプロンプトバージョン等を DynamoDB 等に記録しておくと、「デプロイしたのに旧挙動」に気づける。エンドポイントは `aws bedrock-agentcore-control get-agent-runtime-endpoint --endpoint-name DEFAULT` で `liveVersion` を確認できるが、liveVersion が新しくても既存セッションは旧コンテナのままなので騙されないこと。
 
 ---
 
 ## ツール単位のアクセス制御パターン
 
-特定のツールだけを許可されたユーザーに制限し、他のツールは誰でも使えるようにする方式。
+特定のツールだけを許可されたユーザーに制限し、他のツールは誰でも使えるようにする方式である。
 
 ### 実装パターン
 
-1. **呼び出し元からペイロードに `user_id` を含める**
-2. **エージェント側で `ALLOWED_USER_IDS` 環境変数を読み込む**（モジュールレベル、コンテナ起動時に1回）
-3. **制限対象のツール内でユーザーIDを照合**し、不一致なら拒否メッセージを返す
+1. 呼び出し元からペイロードに `user_id` を含める
+2. エージェント側でコンテナ起動時に1回、モジュールレベルで `ALLOWED_USER_IDS` 環境変数を読み込む
+3. 制限対象のツール内でユーザーIDを照合し、不一致なら拒否メッセージを返す
 
 ```python
 ALLOWED_USER_IDS = set(
@@ -137,9 +137,9 @@ async def invoke_agent(payload, context):
     # ...
 ```
 
-**ポイント**:
-- 空の `ALLOWED_USER_IDS`（= 未設定）の場合は全員許可（`if ALLOWED_USER_IDS and ...`）
-- `ALLOWED_USER_IDS` はモジュールレベルで読み込まれるため、変更時はセッション停止が必要
+ポイント:
+- `ALLOWED_USER_IDS` が空で未設定の場合は、`if ALLOWED_USER_IDS and ...` の判定により全員を許可する
+- `ALLOWED_USER_IDS` はモジュールレベルで読み込まれるため、変更時はセッションを停止する必要がある
 
 ---
 
@@ -161,11 +161,11 @@ agent = Agent(tools=[browser, ...])
 agent = Agent(tools=[browser.browser, ...])
 ```
 
-`LocalChromiumBrowser` も同様のパターン（`local.browser`）。
+`LocalChromiumBrowser` も同様に `local.browser` を渡す。
 
 ### AgentCoreBrowser はリモートブラウザ（Playwright ローカルドライバー不要）
 
-`AgentCoreBrowser()` は AgentCore Browser Service（リモート）を呼び出すため、ローカルの Playwright ドライバー（node バイナリ）は不要。`shutil.copy2` で 118MB の node バイナリをコピーするワークアラウンドを入れると、モジュール初期化でタイムアウトしてデプロイが失敗する。
+`AgentCoreBrowser()` はリモートの AgentCore Browser Service を呼び出すため、ローカルの Playwright ドライバー（node バイナリ）は不要である。`shutil.copy2` で 118MB の node バイナリをコピーするワークアラウンドを入れると、モジュール初期化でタイムアウトしてデプロイが失敗する。
 
 ```python
 # NG: AgentCoreBrowser にはこのワークアラウンドは不要（デプロイ失敗の原因）
@@ -181,25 +181,25 @@ agent = Agent(tools=[browser.browser, ...])
 
 ### `strands_tools.browser.AgentCoreBrowser` も Playwright driver を必要とする
 
-解説記事などで「AgentCoreBrowser はリモートブラウザなので Playwright のローカルドライバー不要」と説明される場合があるが、実際には `strands_tools.browser.AgentCoreBrowser` は内部で Playwright の CDP クライアントを使って AgentCore 側のリモートブラウザに WebSocket 接続する。この **CDP 接続に `playwright/driver/node` バイナリの起動が必要** なので、CodeZip デプロイで実行権限が落ちると `PermissionError: /var/task/playwright/driver/node` で失敗する。
+解説記事などで「AgentCoreBrowser はリモートブラウザなので Playwright のローカルドライバー不要」と説明される場合があるが、実際には `strands_tools.browser.AgentCoreBrowser` は内部で Playwright の CDP クライアントを使って AgentCore 側のリモートブラウザに WebSocket 接続する。この CDP 接続に `playwright/driver/node` バイナリの起動が必要なので、CodeZip デプロイで実行権限が落ちると `PermissionError: /var/task/playwright/driver/node` で失敗する。
 
-→ **AgentCoreBrowser を使うエージェントも Container デプロイ必須**。「リモートブラウザだから軽量」と説明されていても、ローカルランタイム側に Playwright driver は依然として必要。
+そのため、**AgentCoreBrowser を使うエージェントも Container デプロイが必須である**。「リモートブラウザだから軽量」と説明されていても、ローカルランタイム側に Playwright driver は依然として必要になる。
 
 ### CodeZip デプロイ時の Playwright 実行権限問題（LocalChromiumBrowser のみ）
 
-**`LocalChromiumBrowser` を使う場合のみ**、CodeZip パッケージングで Playwright ドライバーの実行ビット（`+x`）が失われる。`AgentCoreBrowser`（リモートブラウザ）ではこの問題は発生しない。
+`LocalChromiumBrowser` を使う場合に限り、CodeZip パッケージングで Playwright ドライバーの実行ビット（`+x`）が失われる。リモートブラウザである `AgentCoreBrowser` ではこの問題は発生しない。
 
-**解決策**: `/tmp` にコピーして `PLAYWRIGHT_NODEJS_PATH` 環境変数で指定（`get_agent()` 内の遅延初期化で実行すること）
+解決策: `/tmp` にコピーし、`get_agent()` 内の遅延初期化で `PLAYWRIGHT_NODEJS_PATH` 環境変数に指定する。
 
-**ポイント**:
-- `/var/task/` は読み取り専用のため `os.chmod()` は効かない
+ポイント:
+- `/var/task/` は読み取り専用のため、`os.chmod()` では権限を変更できない
 - Playwright 1.58.0 の `_driver.py` で `PLAYWRIGHT_NODEJS_PATH` 環境変数がサポートされている
-- Docker デプロイの場合はこの問題は発生しない（Dockerfile で権限設定可能）
-- **モジュールレベルで 118MB のファイルコピーを実行するとデプロイ時のヘルスチェックでタイムアウトする**
+- Docker デプロイでは Dockerfile で権限を設定できるため、この問題は発生しない
+- モジュールレベルで 118MB のファイルコピーを実行すると、デプロイ時のヘルスチェックでタイムアウトする
 
 ### Browser Tool の IAM 権限
 
-`agentcore deploy` のデフォルトロールには Browser Tool の権限がない。以下を手動追加する必要がある:
+`agentcore deploy` のデフォルトロールには Browser Tool の権限がない。以下を手動で追加する必要がある。
 
 ```json
 {
@@ -209,7 +209,7 @@ agent = Agent(tools=[browser.browser, ...])
 }
 ```
 
-**注意**: `GetBrowserSession` + `StartBrowserSession` だけでは不十分。WebSocket automation stream 接続に追加の隠しアクションが必要なため、テスト時は `bedrock-agentcore:*` のフルアクセスが確実。本番では最小権限に絞り込むこと。
+注意: `GetBrowserSession` と `StartBrowserSession` だけでは不十分である。WebSocket automation stream 接続に追加の隠しアクションが必要なため、テスト時は `bedrock-agentcore:*` のフルアクセスにしておくと確実になる。本番では最小権限に絞り込むこと。
 
 ---
 
@@ -217,15 +217,15 @@ agent = Agent(tools=[browser.browser, ...])
 
 ### ENFORCE モードが AWS_IAM で Internal Failure
 
-**症状**: `authorizerType: AWS_IAM` のゲートウェイに Policy Engine を ENFORCE モードで関連付けると、`tools/list` / `tools/call` が以下のエラーで失敗する：
+症状: `authorizerType: AWS_IAM` のゲートウェイに Policy Engine を ENFORCE モードで関連付けると、`tools/list` や `tools/call` が以下のエラーで失敗する。
 ```
 Tool Execution Denied: Policy Evaluation Internal Failure
 ```
 LOG_ONLY モードでは正常にツール呼び出しが通過する。
 
-**原因**: **Policy Engine の ENFORCE は `CUSTOM_JWT`（OAuth/Cognito）認証専用**。Cedar スキーマの Principal Type が `AgentCore::OAuthUser` 固定であり、JWT の `sub` クレームから principal を構築する設計。`AWS_IAM` 認証では principal エンティティを構築できず Internal Failure になる。
+原因: Policy Engine の ENFORCE は `CUSTOM_JWT`（OAuth/Cognito）認証専用である。Cedar スキーマの Principal Type が `AgentCore::OAuthUser` に固定されており、JWT の `sub` クレームから principal を構築する設計になっている。`AWS_IAM` 認証では principal エンティティを構築できず、Internal Failure になる。
 
-**解決策**: Policy Engine（特に ENFORCE モード）を使うには `CUSTOM_JWT` 認証のゲートウェイが必要
+解決策: Policy Engine、特に ENFORCE モードを使うには `CUSTOM_JWT` 認証のゲートウェイが必要になる。
 
 ```python
 # NG: AWS_IAM + ENFORCE → Internal Failure
@@ -244,9 +244,9 @@ agentcore.create_gateway(
 )
 ```
 
-**補足**:
-- `authorizerType` は既存ゲートウェイでは変更不可（`update_gateway` で `ValidationException`）。新規作成が必要
-- Cedar ポリシーで `principal.hasTag("department")` 等を使う場合、JWT トークンにカスタムクレームが必要
+補足:
+- `authorizerType` は既存ゲートウェイでは変更できず、`update_gateway` を呼ぶと `ValidationException` になるため、新規作成が必要である
+- Cedar ポリシーで `principal.hasTag("department")` 等を使う場合、JWT トークンにカスタムクレームが必要になる
 
 ---
 
@@ -254,11 +254,11 @@ agentcore.create_gateway(
 
 ### AgentCore WebSocket: JWT 認証が使えない
 
-**症状**: ブラウザから AgentCore の WebSocket エンドポイントに接続できない（認証エラー）
+症状: ブラウザから AgentCore の WebSocket エンドポイントに接続しようとすると認証エラーになり、接続できない。
 
-**原因**: `RuntimeAuthorizerConfiguration.usingJWT()` で設定した JWT 認証は HTTP invocations 用。ブラウザの WebSocket API はカスタムヘッダーを設定できないため、JWT トークンを渡せない
+原因: `RuntimeAuthorizerConfiguration.usingJWT()` で設定した JWT 認証は HTTP invocations 用である。ブラウザの WebSocket API はカスタムヘッダーを設定できないため、JWT トークンを渡せない。
 
-**解決策**: JWT 認証を削除し、IAM (SigV4) 事前署名 URL + Cognito Identity Pool に変更
+解決策: JWT 認証を削除し、IAM (SigV4) 事前署名 URL と Cognito Identity Pool の構成に変更する。
 
 ```typescript
 // CDK: Identity Pool の認証済みロールに権限付与
@@ -281,11 +281,11 @@ const ws = new WebSocket(`wss://...?${queryString}`);
 
 ## Dockerfile: PyAudio ビルド失敗（strands-agents[bidi]）
 
-**症状**: Docker ビルド時に `strands-agents[bidi]` のインストールで PyAudio のビルドが失敗する
+症状: Docker ビルド時に `strands-agents[bidi]` をインストールする際、PyAudio のビルドが失敗する。
 
-**原因**: Python slim イメージには C コンパイラと PortAudio ライブラリがない
+原因: Python slim イメージには C コンパイラと PortAudio ライブラリが含まれていない。
 
-**解決策**: `portaudio19-dev` + `build-essential` を追加
+解決策: `portaudio19-dev` と `build-essential` を追加する。
 
 ```dockerfile
 RUN apt-get update && apt-get install -y --no-install-recommends \

@@ -81,7 +81,7 @@ if (!response.ok) {
 
 ## アイドルタイムアウト（2段構成）
 
-SSEストリームに2段階のタイムアウトを設定し、接続障害と推論ハングの両方を検知するパターン：
+SSEストリームに2段階のタイムアウトを設定し、接続障害と推論ハングの両方を検知する。
 
 ```typescript
 async function readSSEStream(
@@ -113,13 +113,13 @@ async function readSSEStream(
 | 初回イベント受信前 | 短め（10秒） | スロットリング、接続エラー |
 | イベント間（初回受信後） | 長め（60秒） | 推論ハング、モデル無応答 |
 
-**設計ポイント**:
-- 初回タイムアウトは短く → ユーザーを素早くエラーに気づかせる
-- イベント間タイムアウトは長めに → 正常な推論やツール実行を妨げない
+設計では次の点を意識する。
+- 初回タイムアウトは短くし、ユーザーがエラーにすぐ気づけるようにする
+- イベント間タイムアウトは長めに取り、正常な推論やツール実行を妨げないようにする
 
 ## モック実装（ローカル開発用）
 
-> ※ モックは既定ではない。実物のバックエンドへつないで作る実装ファーストが原則で、これは AWS 認証が無い環境で UI だけ確認する等の限定用途。
+> ※ モックは既定ではない。実物のバックエンドにつないで作る実装ファーストが原則で、AWS 認証がない環境で UI だけ確認するなどの限定用途で使う。
 
 ```typescript
 export async function invokeAgentMock(prompt, callbacks) {
@@ -145,7 +145,7 @@ const invoke = useMock ? invokeAgentMock : invokeAgent;
 
 ## エクスポートのリトライパターン（ネットワーク耐性）
 
-SSE経由のファイルエクスポート（PDF/PPTX等）は、不安定なネットワークでストリームが切断されることがある：
+SSE経由のファイルエクスポート（PDF/PPTXなど）は、不安定なネットワークでストリームが切断されることがある。
 
 ```typescript
 export async function exportSlide(
@@ -171,8 +171,8 @@ export async function exportSlide(
 }
 ```
 
-**ポイント**:
-- SSE `reader.read()` が `done: true` を返しても `resultBlob` が null = ストリーム切断
+以下の点を押さえておく。
+- SSEの `reader.read()` が `done: true` を返しても `resultBlob` が null なら、ストリームが切断されている
 - リトライは1回（計2回）で十分
 - バックエンド側のkeep-alive（5秒ごとの progress イベント）と組み合わせるとさらに効果的
 

@@ -4,11 +4,11 @@
 
 ### 日付→曜日の変換
 
-LLM は日付から曜日を計算するのが苦手（既知の弱点）。`strands_tools` の `current_time` は ISO 8601 形式（例: `2026-02-09T02:46:56+00:00`）を返すが、曜日情報が含まれないため LLM が誤認識する。
+LLMは日付から曜日を計算するのが苦手で、これは既知の弱点だ。`strands_tools` の `current_time` は ISO 8601 形式（例: `2026-02-09T02:46:56+00:00`）を返すが、曜日情報が含まれないためLLMが誤認識する。
 
-**実例**: 2026年2月9日（月曜日）を LLM が「日曜日」と誤認識
+実例として、2026年2月9日（月曜日）をLLMが「日曜日」と誤認識した。
 
-**原則**: LLM に計算させず、ツール側で確定情報を返す。
+原則として、LLMには計算させずツール側で確定情報を返す。
 
 ```python
 from datetime import datetime, timezone, timedelta
@@ -25,9 +25,9 @@ def current_time() -> str:
     return f"{now.year}年{now.month}月{now.day}日({weekday}) {now.strftime('%H:%M')} JST"
 ```
 
-**ポイント**:
-- タイムゾーン変換もツール側で完結させる（システムプロンプトの「+9時間して」は不確実）
-- `Python の weekday()` は月曜=0 なので日本語曜日配列のインデックスと一致する
+ポイントは以下の通り。
+- システムプロンプトの「+9時間して」は不確実なため、タイムゾーン変換もツール側で完結させる
+- `Python の weekday()` は月曜=0なので、日本語曜日配列のインデックスと一致する
 - `strands_tools.current_time` の代わりにカスタムツールを使う
 
 ---
@@ -36,14 +36,14 @@ def current_time() -> str:
 
 ### 日本語フォント（NotoSansCJKjp）
 
-日本語PDFを生成する場合、CJKフォントが必要。NotoSansCJKjpを使用：
+日本語PDFを生成するにはCJKフォントが必要になる。ここではNotoSansCJKjpを使う。
 
 ```dockerfile
 # Dockerfile: フォントをプロジェクトからコピー
 COPY fonts/ /app/fonts/
 ```
 
-**フォントの入手先**:
+フォントの入手先は以下の通り。
 - https://github.com/minoryorg/Noto-Sans-CJK-JP
 - `fonts/NotoSansCJKjp-Regular.ttf`
 - `fonts/NotoSansCJKjp-Bold.ttf`
@@ -89,9 +89,8 @@ download_url = s3_presigned.generate_presigned_url(
 ```
 
 ### 注意点
-- GitHubからフォントをcurlでダウンロードする場合、`-L`オプション必須（リダイレクト対応）
-- apt-getでfonts-noto-cjkをインストールするとTTC形式になりFPDF2で追加設定が必要
-- **プロジェクトにフォントファイルを含めてCOPYするのが最も確実**
+- GitHubからフォントをcurlでダウンロードする場合、リダイレクト対応のため`-L`オプションが必須になる
+- apt-getでfonts-noto-cjkをインストールするとTTC形式になり、FPDF2で追加設定が必要になる
+- **プロジェクトにフォントファイルを含めてCOPYするのが最も確実だ**
 
 ---
-

@@ -22,8 +22,8 @@ if __name__ == "__main__":
 ```
 
 ### エンドポイント
-- `POST /invocations` - エージェント実行
-- `GET /ping` - ヘルスチェック
+- `POST /invocations` はエージェント実行に使う
+- `GET /ping` はヘルスチェックに使う
 
 ### 必要な依存関係
 ```
@@ -33,11 +33,11 @@ strands-agents
 tavily-python  # Web検索が必要な場合
 ```
 
-**注意**: fastapi/uvicorn は不要（bedrock-agentcore SDKに内包）
+注意点として、fastapi/uvicorn は bedrock-agentcore SDK に内包されているため、別途入れなくてよい。
 
 ### セッションIDでAgentを管理（複数ユーザー対応）
 
-AgentCoreで複数ユーザーの会話履歴を保持する場合、セッションIDごとにAgentインスタンスを管理する：
+AgentCoreで複数ユーザーの会話履歴を保持する場合は、セッションIDごとにAgentインスタンスを管理する。
 
 ```python
 from strands import Agent
@@ -75,11 +75,11 @@ async def invoke(payload):
     # ...
 ```
 
-**注意**: コンテナ再起動でセッションは消える（メモリ管理）。永続化が必要な場合はDynamoDB等を検討。
+セッションはメモリ上で管理しているため、コンテナを再起動すると消える点に注意する。永続化が必要な場合はDynamoDB等の利用を検討する。
 
 ### SSE keep-alive パターン（長時間処理のコネクション維持）
 
-同期的な重い処理（ファイル変換、外部API呼び出し等）をSSEで返す場合、処理中にkeep-aliveイベントを送信してコネクションを維持する。`asyncio.run_in_executor` + `asyncio.shield` + タイムアウトの組み合わせ。
+ファイル変換や外部API呼び出し等の同期的な重い処理をSSEで返す場合は、処理中にkeep-aliveイベントを送信してコネクションを維持する。実装には `asyncio.run_in_executor` と `asyncio.shield`、タイムアウトを組み合わせる。
 
 ```python
 import asyncio
@@ -109,10 +109,10 @@ async def invoke(payload, context=None):
         return
 ```
 
-**ポイント**:
-- `asyncio.shield(task)` で TimeoutError 時もタスクがキャンセルされない
-- `task.done()` でループ脱出を判定、`task.result()` で結果取得
-- フロントエンドのSSEパーサーは未知の `type` を無視するため、既存コードの変更不要
+実装時のポイントは以下の通り。
+- `asyncio.shield(task)` を使っているため、TimeoutError 時もタスクがキャンセルされない
+- `task.done()` でループを抜けるタイミングを判定し、`task.result()` で結果を取得する
+- フロントエンドのSSEパーサーは未知の `type` を無視するため、既存コードの変更は不要
 
 ### ツール使用イベント送信
 ```python
@@ -137,32 +137,31 @@ async def invoke(payload):
 
 ## Bedrockプロンプトキャッシュが突然停止する
 
-**症状**: Cost ExplorerのCacheWrite/CacheRead費用が特定のコミット以降ずっと0になる
+症状としては、特定のコミット以降、Cost ExplorerのCacheWrite/CacheRead費用がずっと0になる。
 
-**原因**: Bedrockのprompt cachingは**ツール定義の合計トークンが1024以上**必要。ツールのdocstringを短くしたり、リッチなビルトインツール（`strands_tools.http_request` 等）をシンプルなカスタムツールに置き換えると、合計が1024を割り込んでキャッシュが機能停止する。
+原因は、Bedrockのprompt cachingで**ツール定義の合計トークンが1024以上**必要なことにある。ツールのdocstringを短くしたり、`strands_tools.http_request` 等のリッチなビルトインツールをシンプルなカスタムツールに置き換えたりすると、合計が1024を下回ってキャッシュが止まる。
 
 | 状態 | http_requestのトークン数 | ツール合計 | キャッシュ |
 |------|------------------------|-----------|----------|
 | strands_tools版（21パラメータ） | ~884 tokens | ~1096 | 動作 |
-| カスタム版（2パラメータ、docstring短い） | ~90 tokens | ~302 | 停止 |
+| カスタム版（2パラメータ、docstringが短い） | ~90 tokens | ~302 | 停止 |
 
-**診断方法**:
-1. Cost Explorerでモデル別にCacheWrite/CacheReadを確認し、0になり始めた日付を特定
-2. その日付のコミットで `@tool` 付き関数のdocstringが短くなっていないか確認
+次の手順で診断する。
+1. Cost Explorerでモデル別にCacheWrite/CacheReadを確認し、0になり始めた日付を特定する
+2. その日付のコミットで、`@tool` 付き関数のdocstringが短くなっていないか確認する
 
-**解決策**: docstringを拡充して合計1024トークン以上に戻す（パラメータの詳細説明・使用例・注意事項を追加すると大幅に増やせる）
+解決するには、docstringを充実させて合計を1024トークン以上に戻す。パラメータの詳細説明や使用例、注意事項を追加すると大幅に増やせる。
 
-**`@tool` デコレータとトークン数の関係**:
-- Strands Agentsの `@tool` デコレータはPython関数のdocstringをBedrockへのツール説明（tool spec）として送信する
-- パラメータ数・docstringの文字数がそのまま毎リクエストのトークンコストになる
-- docstringが増えてもキャッシュリード時は90%オフになるため、キャッシュが有効な状態では長いdocstringでもコスト増にはならない
+`@tool` デコレータとトークン数の関係は次の通り。
+- Strands Agentsの `@tool` デコレータは、Python関数のdocstringをBedrockへのツール説明（tool spec）として送信する
+- パラメータ数やdocstringの文字数が、そのまま毎リクエストのトークンコストになる
+- docstringが増えてもキャッシュリード時は90%オフになるため、キャッシュが有効な状態であれば、長いdocstringでもコスト増にはならない
 
-**Bedrockキャッシュの課金構造（Sonnet 4.6）**:
+Sonnet 4.6 でのBedrockキャッシュの課金構造は下の表の通り。
 | 種別 | 単価 | 備考 |
 |------|------|------|
 | 通常インプット | $3.00/MTok | キャッシュなし時 |
 | キャッシュライト | $3.75/MTok | 初回（25%高い） |
-| キャッシュリード | $0.30/MTok | 2回目以降（**90%オフ**） |
+| キャッシュリード | $0.30/MTok | 2回目以降（90%オフ） |
 
 ---
-
